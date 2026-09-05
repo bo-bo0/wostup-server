@@ -45,7 +45,7 @@ app.MapDelete("/users/{id}", async (int id) =>
         builder.Configuration.GetConnectionString("Database")
     );
 
-    var affectedRows = await connection.ExecuteAsync(
+    int affectedRows = await connection.ExecuteAsync(
         "DELETE FROM users WHERE id == @Id;",
         new { Id = id }
     );
@@ -53,6 +53,47 @@ app.MapDelete("/users/{id}", async (int id) =>
     return affectedRows == 0 ? Results.NotFound() : Results.NoContent();
 });
 
-app.MapPost("/messages", ())
+app.MapPost("/messages", async (CreateMessageRequest request) =>
+{
+    await using var connection = new NpgsqlConnection(
+        builder.Configuration.GetConnectionString("Database")
+    );
+
+    int affectedRows = await connection.ExecuteAsync(
+        "INSERT INTO messages (recipient_id, sender_id, content, sent_date_time)" +
+        "VALUES(@RecipientNumber, @SenderNumber, @Content, @SentDateTime)",
+        new 
+        {
+            RecipientNumber = request.RecipientNumber,
+            SenderNumber = request.SenderNumber,
+            Content = request.Content,
+            SentDateTime = request.SentDateTime
+        }
+    );
+
+    return affectedRows == 0 ? Results.NotFound() : Results.Ok();
+});
+
+app.MapGet("/messages/{number}", async (string number) => 
+{
+    await using var connection = new NpgsqlConnection(
+        builder.Configuration.GetConnectionString("Database")
+    );
+
+    const string query = 
+        "SELECT id, " +
+        "recipient_number AS RecipientNumber, " +
+        "sender_number AS SenderNumber, " +
+        "content, " +
+        "sent_date_time AS SentDateTime " +
+        "FROM messages WHERE recipient_number = @Number";
+
+    var messages = await connection.QueryAsync<Message>(
+        query,
+        new { Number = number }
+    );
+
+    return !messages.Any() ? Results.NotFound() : Results.Ok(messages);
+});
 
 app.Run();
