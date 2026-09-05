@@ -71,7 +71,7 @@ app.MapPost("/messages", async (CreateMessageRequest request) =>
         }
     );
 
-    return affectedRows == 0 ? Results.NotFound() : Results.Ok();
+    return affectedRows == 0 ? Results.NotFound() : Results.Created();
 });
 
 app.MapGet("/messages/{number}", async (string number) => 
@@ -80,13 +80,14 @@ app.MapGet("/messages/{number}", async (string number) =>
         builder.Configuration.GetConnectionString("Database")
     );
 
-    const string query = 
-        "SELECT id, " +
+    const string query =
+        "DELETE FROM messages WHERE recipient_number = @Number " +
+        "RETURNING " +
+        "id, " +
         "recipient_number AS RecipientNumber, " +
         "sender_number AS SenderNumber, " +
         "content, " +
-        "sent_date_time AS SentDateTime " +
-        "FROM messages WHERE recipient_number = @Number";
+        "sent_date_time AS SentDateTime";
 
     var messages = await connection.QueryAsync<Message>(
         query,
