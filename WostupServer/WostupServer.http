@@ -1,0 +1,6 @@
+@WostupServer_HostAddress = http://localhost:5187
+
+GET {{WostupServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
