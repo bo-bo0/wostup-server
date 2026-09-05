@@ -60,7 +60,7 @@ app.MapPost("/messages", async (CreateMessageRequest request) =>
     );
 
     int affectedRows = await connection.ExecuteAsync(
-        "INSERT INTO messages (recipient_id, sender_id, content, sent_date_time)" +
+        "INSERT INTO messages (recipient_number, sender_number, content, sent_date_time)" +
         "VALUES(@RecipientNumber, @SenderNumber, @Content, @SentDateTime)",
         new 
         {
