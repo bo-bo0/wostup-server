@@ -1,6 +1,6 @@
 ﻿namespace WostupServer
 {
-    public sealed class User
+    public sealed record User
     {
         public int Id { get; set; }
         public string? Name { get; set; }
