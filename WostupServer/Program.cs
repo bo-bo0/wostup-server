@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using WostupServer;
 
@@ -96,5 +97,38 @@ app.MapGet("/messages/{number}", async (string number) =>
 
     return !messages.Any() ? Results.NotFound() : Results.Ok(messages);
 });
+
+app.MapPost("/files", async ([FromForm] CreateFileRequest request, 
+    IWebHostEnvironment environment) => 
+{
+    if (request.File.Length == 0) 
+    {
+        return Results.BadRequest();
+    }
+
+    var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads");
+
+    Directory.CreateDirectory(uploadsDirectory);
+
+    var fileName = Path.GetRandomFileName();
+
+    var filePath = Path.Combine
+    (
+        uploadsDirectory,
+        $"{request.UserName}--{request.UserNumber}",
+        fileName
+    );
+
+    await using var stream = File.Create(filePath);
+    await request.File.CopyToAsync(stream);
+
+    return Results.Created($"/files/{fileName}", new
+    {
+        fileName,
+        originalFileName = request.File.FileName,
+        size = request.File.Length,
+        contentType = request.File.ContentType
+    });
+}).DisableAntiforgery();
 
 app.Run();
