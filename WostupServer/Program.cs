@@ -1,6 +1,7 @@
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using System.Text.Json;
 using WostupServer;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -98,37 +99,69 @@ app.MapGet("/messages/{number}", async (string number) =>
     return !messages.Any() ? Results.NotFound() : Results.Ok(messages);
 });
 
-app.MapPost("/files", async ([FromForm] CreateFileRequest request, 
+app.MapGet("/teinforeq", async (IWebHostEnvironment environment) => 
+{
+    try
+    {
+        string te = "TEconfig.json";
+        string tePath = Path.Combine(environment.ContentRootPath, te);
+
+        if (!File.Exists(tePath))
+        {
+            using var s = File.Create(tePath);
+            using var writer = new StreamWriter(s);
+
+            await writer.WriteAsync(TEConfig.GetDefaultConfig());
+        }
+
+        using var stream = File.OpenRead(tePath);
+        var config = await JsonSerializer.DeserializeAsync<TEConfig>(stream);
+
+        return Results.Ok(config);
+    }
+    catch 
+    {
+        return Results.InternalServerError();
+    }
+});
+
+app.MapPost("/files", async ([FromForm] CreateFilesRequest request, 
     IWebHostEnvironment environment) => 
 {
-    if (request.File.Length == 0) 
+    if (request.Files.Count == 0) 
     {
         return Results.BadRequest();
     }
 
     var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads");
 
-    Directory.CreateDirectory(uploadsDirectory);
+    var userDirectory = 
+        Path.Combine(uploadsDirectory, $"{request.UserName}--{request.UserNumber}");
 
-    var fileName = Path.GetRandomFileName();
+    var destinationDirectory = Path.Combine(userDirectory, request.ServerDestinationPath);
 
-    var filePath = Path.Combine
-    (
-        uploadsDirectory,
-        $"{request.UserName}--{request.UserNumber}",
-        fileName
-    );
-
-    await using var stream = File.Create(filePath);
-    await request.File.CopyToAsync(stream);
-
-    return Results.Created($"/files/{fileName}", new
+    var dir = Directory.CreateDirectory(destinationDirectory);
+    foreach (var file in dir.EnumerateFiles()) 
     {
-        fileName,
-        originalFileName = request.File.FileName,
-        size = request.File.Length,
-        contentType = request.File.ContentType
-    });
+        file.Delete();
+    }
+
+    foreach (var file in request.Files) 
+    {
+        var fileName = Path.GetRandomFileName();
+
+        var filePath = Path.Combine
+        (
+            destinationDirectory,
+            fileName
+        );
+
+        await using var stream = File.Create(filePath);
+        await file.CopyToAsync(stream);
+    }
+
+    return Results.Created($"/files/{destinationDirectory}", new {});
+
 }).DisableAntiforgery();
 
 app.Run();
