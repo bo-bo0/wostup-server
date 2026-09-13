@@ -187,8 +187,8 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
         await using var luWriter = new StreamWriter(luStream);
 
         await luWriter.WriteAsync($"The latest update received from this client was" +
-            $" on the (dd/MM/yyyy hh:mm:ss)(UTC+2):" +
-            $" {DateTime.UtcNow.AddHours(2).ToString("dd/MM/yyyy hh:mm:ss")}");
+            $" on the (dd/MM/yyyy HH:mm:ss)(UTC+2):" +
+            $" {DateTime.UtcNow.AddHours(2).ToString("dd/MM/yyyy HH:mm:ss")}");
 
         return Results.Created($"/files/{userDirectory}", new { });
     }
