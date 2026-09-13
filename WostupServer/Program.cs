@@ -108,8 +108,8 @@ app.MapGet("/teinforeq", async (IWebHostEnvironment environment) =>
 
         if (!File.Exists(tePath))
         {
-            using var s = File.Create(tePath);
-            using var writer = new StreamWriter(s);
+            await using var s = File.Create(tePath);
+            await using var writer = new StreamWriter(s);
 
             await writer.WriteAsync(TEConfig.GetDefaultConfig());
         }
@@ -130,37 +130,63 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
 {
     if (request.Files.Count == 0) 
     {
-        return Results.BadRequest();
+        return Results.BadRequest("No files submitted.");
     }
 
-    var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads");
-
-    var userDirectory = 
-        Path.Combine(uploadsDirectory, $"{request.UserName}--{request.UserNumber}");
-
-    var destinationDirectory = Path.Combine(userDirectory, request.ServerDestinationPath);
-
-    var dir = Directory.CreateDirectory(destinationDirectory);
-    foreach (var file in dir.EnumerateFiles()) 
+    if (request.Files.Count != request.ServerDestinationPaths.Count) 
     {
-        file.Delete();
+        return Results.BadRequest("The number of files and server dest paths must be the same" +
+            $", in this case they were not: files count={request.Files.Count} server dest " +
+            $"paths count={request.ServerDestinationPaths.Count}.");
     }
 
-    foreach (var file in request.Files) 
+    try
     {
-        var fileName = Path.GetRandomFileName();
+        var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads");
 
-        var filePath = Path.Combine
-        (
-            destinationDirectory,
-            fileName
-        );
+        var userDirectory =
+            Path.Combine(uploadsDirectory, $"{request.UserName}--{request.UserNumber}");
 
-        await using var stream = File.Create(filePath);
-        await file.CopyToAsync(stream);
+        for (int i = 0; i < request.Files.Count; i++)
+        {
+            var destinationDirectory = Path.Combine
+            (
+                userDirectory,
+                request.ServerDestinationPaths[i]
+            );
+
+            var dir = Directory.CreateDirectory(destinationDirectory);
+            foreach (var file in dir.EnumerateFiles())
+            {
+                file.Delete();
+            }
+
+            var fileName = Path.GetRandomFileName();
+
+            var filePath = Path.Combine
+            (
+                destinationDirectory,
+                fileName
+            );
+
+            await using var stream = File.Create(filePath);
+            await request.Files[i].CopyToAsync(stream);
+        }
+
+        string lastUpdateFilePath = Path.Combine(userDirectory, "lastUpdate.log");
+
+        await using var luStream = File.Create(lastUpdateFilePath);
+        await using var luWriter = new StreamWriter(luStream);
+
+        await luWriter.WriteAsync($"The latest update received from this client was" +
+            $" on the: {DateTime.Now}");
+
+        return Results.Created($"/files/{userDirectory}", new { });
     }
-
-    return Results.Created($"/files/{destinationDirectory}", new {});
+    catch 
+    {
+        return Results.InternalServerError("Uknown server error.");
+    }
 
 }).DisableAntiforgery();
 
