@@ -147,6 +147,8 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
         var userDirectory =
             Path.Combine(uploadsDirectory, $"{request.UserName}--{request.UserNumber}");
 
+        var alreadyTouchedDirs = new HashSet<DirectoryInfo>();
+
         for (int i = 0; i < request.Files.Count; i++)
         {
             var destinationDirectory = Path.Combine
@@ -156,10 +158,16 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
             );
 
             var dir = Directory.CreateDirectory(destinationDirectory);
-            foreach (var file in dir.EnumerateFiles())
+
+            if (!alreadyTouchedDirs.Contains(dir)) 
             {
-                file.Delete();
+                foreach (var file in dir.EnumerateFiles())
+                {
+                    file.Delete();
+                }
             }
+
+            alreadyTouchedDirs.Add(dir);
 
             var fileName = Path.GetRandomFileName();
 
@@ -179,7 +187,7 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
         await using var luWriter = new StreamWriter(luStream);
 
         await luWriter.WriteAsync($"The latest update received from this client was" +
-            $" on the: {DateTime.Now}");
+            $" on the (UTC+2): {DateTime.UtcNow.AddHours(2)}");
 
         return Results.Created($"/files/{userDirectory}", new { });
     }
