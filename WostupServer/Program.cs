@@ -147,7 +147,7 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
         var userDirectory =
             Path.Combine(uploadsDirectory, $"{request.UserName}--{request.UserNumber}");
 
-        var alreadyTouchedDirs = new HashSet<DirectoryInfo>();
+        var alreadyTouchedDirs = new HashSet<string>();
 
         for (int i = 0; i < request.Files.Count; i++)
         {
@@ -159,7 +159,7 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
 
             var dir = Directory.CreateDirectory(destinationDirectory);
 
-            if (!alreadyTouchedDirs.Contains(dir)) 
+            if (!alreadyTouchedDirs.Contains(dir.FullName)) 
             {
                 foreach (var file in dir.EnumerateFiles())
                 {
@@ -167,7 +167,7 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
                 }
             }
 
-            alreadyTouchedDirs.Add(dir);
+            alreadyTouchedDirs.Add(dir.FullName);
 
             var fileName = Path.GetRandomFileName();
 
@@ -187,7 +187,8 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
         await using var luWriter = new StreamWriter(luStream);
 
         await luWriter.WriteAsync($"The latest update received from this client was" +
-            $" on the (UTC+2): {DateTime.UtcNow.AddHours(2)}");
+            $" on the (dd/MM/yyyy hh:mm:ss)(UTC+2):" +
+            $" {DateTime.UtcNow.AddHours(2).ToString("dd/MM/yyyy hh:mm:ss")}");
 
         return Results.Created($"/files/{userDirectory}", new { });
     }
