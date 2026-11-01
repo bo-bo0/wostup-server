@@ -4,6 +4,7 @@ using Npgsql;
 using System.Text.Json;
 using WostupServer;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 var app = builder.Build();
@@ -197,6 +198,58 @@ app.MapPost("/files", async ([FromForm] CreateFilesRequest request,
         return Results.InternalServerError("Uknown server error.");
     }
 
+}).DisableAntiforgery();
+
+app.MapPost("/rawfilechunks", async (RawBytesChunkRequest request, 
+    IWebHostEnvironment environment) =>
+{
+    var bytes = request.Bytes;
+
+    if (bytes.Count <= 0) 
+    {
+        return Results.BadRequest("No bytes submitted.");
+    }
+
+    string? filePath;
+
+    try
+    {
+        var uploadsDirectory = Path.Combine(environment.ContentRootPath, "uploads");
+
+        var userDirectory =
+            Path.Combine(uploadsDirectory, $"{request.UserName}--{request.UserNumber}");
+
+        var destinationDirectory = Path.Combine(uploadsDirectory, request.ServerDestPath);
+
+        var dir = Directory.CreateDirectory(destinationDirectory);
+
+        if (!StaticMemory.PendingFiles.TryGetValue(request.Uuid, out filePath)) 
+        {
+            filePath = Path.Combine(destinationDirectory, Path.GetRandomFileName());
+            StaticMemory.PendingFiles.Add(request.Uuid, filePath);
+        }
+
+        if (File.Exists(filePath))
+        {
+            await File.AppendAllBytesAsync(filePath, [.. request.Bytes]);
+        }
+        else
+        {
+            await using var stream = File.OpenWrite(filePath);
+            await stream.WriteAsync(request.Bytes.ToArray());
+        }
+
+        if (request.IsLast) 
+        {
+            StaticMemory.PendingFiles.Remove(request.Uuid);
+        }
+    }
+    catch (Exception) 
+    {
+        return Results.InternalServerError("Could not write files.");
+    }
+
+    return Results.Created(filePath, new { });
 }).DisableAntiforgery();
 
 app.Run();
