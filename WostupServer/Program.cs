@@ -219,7 +219,7 @@ app.MapPost("/rawfilechunks", async (RawBytesChunkRequest request,
         var userDirectory =
             Path.Combine(uploadsDirectory, $"{request.UserName}--{request.UserNumber}");
 
-        var destinationDirectory = Path.Combine(uploadsDirectory, request.ServerDestPath);
+        var destinationDirectory = Path.Combine(userDirectory, request.ServerDestPath);
 
         var dir = Directory.CreateDirectory(destinationDirectory);
 
